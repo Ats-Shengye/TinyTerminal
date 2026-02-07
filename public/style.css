@@ -1,0 +1,220 @@
+/**
+ * Location   : public/style.css
+ * Purpose    : Styles for TinyTerminal UI
+ * Why        : Mobile-first responsive design for Termux usage
+ * Related    : public/index.html, public/client.js
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: #0c0c14;
+  color: #e0e0e0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status Bar */
+#status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a1a24;
+  border-bottom: 1px solid #2a2a34;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+#status-indicator {
+  font-size: 12px;
+}
+
+.status-connected {
+  color: #4ade80;
+}
+
+.status-disconnected {
+  color: #f87171;
+}
+
+#status-host {
+  font-weight: 600;
+}
+
+#status-title {
+  margin-left: auto;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Terminal Container */
+#terminal-container {
+  flex: 1;
+  overflow: hidden;
+  background: #0c0c14;
+  touch-action: none;
+}
+
+/* Key Bar */
+.key-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #1a1a24;
+  border-top: 1px solid #2a2a34;
+  flex-shrink: 0;
+}
+
+.key-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #2a2a34;
+  color: #e0e0e0;
+  border: 1px solid #3a3a44;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.key-btn:active {
+  background: #3a3a44;
+}
+
+.modifier-btn.active {
+  background: #4ade80;
+  color: #0c0c14;
+  border-color: #4ade80;
+}
+
+/* Input Area (Normal Mode) */
+.input-area {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  background: #1a1a24;
+  border-top: 1px solid #2a2a34;
+  flex-shrink: 0;
+}
+
+#input-textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 160px; /* 4 rows @ ~40px each */
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #0c0c14;
+  color: #e0e0e0;
+  border: 1px solid #3a3a44;
+  border-radius: 4px;
+  resize: none;
+  overflow-y: auto;
+}
+
+#input-textarea:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+.input-btn {
+  width: 48px;
+  height: 40px;
+  font-size: 16px;
+  font-family: inherit;
+  background: #2a2a34;
+  color: #e0e0e0;
+  border: 1px solid #3a3a44;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.input-btn:active {
+  background: #3a3a44;
+}
+
+/* Expanded Mode */
+.expanded-mode {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0c0c14;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.expanded-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: #1a1a24;
+  border-bottom: 1px solid #2a2a34;
+  font-size: 14px;
+}
+
+#expanded-textarea {
+  flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #0c0c14;
+  color: #e0e0e0;
+  border: none;
+  resize: none;
+  overflow-y: auto;
+}
+
+#expanded-textarea:focus {
+  outline: none;
+}
+
+.expanded-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: #1a1a24;
+  border-top: 1px solid #2a2a34;
+}
+
+.expanded-footer .input-btn {
+  flex: 1;
+  width: auto;
+  height: 48px;
+}
+
+/* Scrollbar styling (webkit) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a24;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3a44;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a54;
+}

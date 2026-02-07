@@ -1,0 +1,30 @@
+{
+  "name": "tinyterminal",
+  "version": "0.1.0",
+  "description": "Browser-based remote terminal via Tailscale for Termux",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "keywords": [
+    "terminal",
+    "remote",
+    "tailscale",
+    "termux",
+    "xterm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^3.0.0"
+  }
+}

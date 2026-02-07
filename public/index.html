@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TinyTerminal</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- xterm.js from CDN with SRI -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css"
+    integrity="sha384-tStR1zLfWgsiXCF3IgfB3lBa8KmBe/lG287CL9WCeKgQYcp1bjb4/+mwN6oti4Co"
+    crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"
+    integrity="sha384-J4qzUjBl1FxyLsl/kQPQIOeINsmp17OHYXDOMpMxlKX53ZfYsL+aWHpgArvOuof9"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"
+    integrity="sha384-XGqKrV8Jrukp1NITJbOEHwg01tNkuXr6uB6YEj69ebpYU3v7FvoGgEg23C1Gcehk"
+    crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Status Bar -->
+  <div id="status-bar">
+    <span id="status-indicator" class="status-disconnected">●</span>
+    <span id="status-host">connecting...</span>
+    <span id="status-title">TinyTerminal</span>
+  </div>
+
+  <!-- xterm.js Terminal Container -->
+  <div id="terminal-container"></div>
+
+  <!-- Special Key Bar Row 1 -->
+  <div id="key-bar-1" class="key-bar">
+    <button class="key-btn" data-key="esc">Esc</button>
+    <button class="key-btn" data-key="tab">Tab</button>
+    <button class="key-btn modifier-btn" data-key="ctrl">Ctrl</button>
+    <button class="key-btn modifier-btn" data-key="alt">Alt</button>
+    <button class="key-btn modifier-btn" data-key="shift">Shift</button>
+  </div>
+
+  <!-- Special Key Bar Row 2 -->
+  <div id="key-bar-2" class="key-bar">
+    <button class="key-btn" data-key="slash">/</button>
+    <button class="key-btn" data-key="minus">-</button>
+    <button class="key-btn" data-key="arrow-left">←</button>
+    <button class="key-btn" data-key="arrow-up">↑</button>
+    <button class="key-btn" data-key="arrow-down">↓</button>
+    <button class="key-btn" data-key="arrow-right">→</button>
+  </div>
+
+  <!-- Input Area (Normal Mode) -->
+  <div id="input-area-normal" class="input-area">
+    <textarea id="input-textarea" placeholder="Type command here..." rows="1"></textarea>
+    <button id="expand-btn" class="input-btn" title="Expand">↔</button>
+    <button id="send-btn" class="input-btn" title="Send (Ctrl+Enter)">▶</button>
+  </div>
+
+  <!-- Expanded Input Mode (hidden by default) -->
+  <div id="expanded-mode" class="expanded-mode" style="display: none;">
+    <div class="expanded-header">
+      <span>expanded input</span>
+      <span id="char-count">0 chars</span>
+    </div>
+    <textarea id="expanded-textarea" placeholder="Type your input here..."></textarea>
+    <div class="expanded-footer">
+      <button id="collapse-btn" class="input-btn">↔ 戻る</button>
+      <button id="send-expanded-btn" class="input-btn">送信</button>
+    </div>
+  </div>
+
+  <script src="client.js"></script>
+</body>
+</html>
