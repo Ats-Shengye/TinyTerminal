@@ -330,8 +330,9 @@ describe('WebSocket Communication', () => {
     inputTextarea.value = 'echo test\n';
     sendBtn.click();
 
+    // 末尾の改行はトリムされる（ソフトキーボード対策）
     expect(mockWebSocket.send).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'input', data: 'echo test\n\r' })
+      JSON.stringify({ type: 'input', data: 'echo test\r' })
     );
   });
 
@@ -367,6 +368,42 @@ describe('WebSocket Communication', () => {
     mockWebSocket.onerror(errorEvent);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith('WebSocket error:', errorEvent);
+  });
+
+  it('should reconnect immediately when page becomes visible again (bug fix)', () => {
+    // 一旦クリーンな状態でテストを開始するため、新しいDOMをセットアップ
+    vi.clearAllMocks();
+    setupDOM();
+
+    // WebSocket生成を監視するためのスパイを設定
+    let wsCreationCount = 0;
+    const originalWebSocket = window.WebSocket;
+    window.WebSocket = function(...args) {
+      wsCreationCount++;
+      const instance = originalWebSocket.apply(this, args);
+      return instance;
+    };
+    window.WebSocket.OPEN = 1;
+
+    // client.jsを実行（初回接続）
+    executeClientJS();
+    const initialWsCount = wsCreationCount;
+
+    // WebSocketを切断状態にシミュレート
+    mockWebSocket.readyState = 3; // CLOSED
+    if (mockWebSocket.onclose) mockWebSocket.onclose();
+
+    // ページが表示状態に戻ったとシミュレート
+    Object.defineProperty(document, 'hidden', {
+      writable: true,
+      configurable: true,
+      value: false,
+    });
+
+    document.dispatchEvent(new window.Event('visibilitychange'));
+
+    // WebSocketが再生成されたことを確認（visibilitychangeによる即座の再接続）
+    expect(wsCreationCount).toBeGreaterThan(initialWsCount);
   });
 });
 
@@ -452,9 +489,90 @@ describe('Textarea Behavior', () => {
     inputTextarea.value = 'button send\n';
     sendBtn.click();
 
+    // 末尾の改行はトリムされる（ソフトキーボード対策）
     expect(mockWebSocket.send).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'input', data: 'button send\n\r' })
+      JSON.stringify({ type: 'input', data: 'button send\r' })
     );
     expect(inputTextarea.value).toBe('');
+  });
+
+  it('should trim trailing newlines from textarea before sending (soft keyboard fix)', () => {
+    const inputTextarea = document.getElementById('input-textarea');
+    const sendBtn = document.getElementById('send-btn');
+
+    inputTextarea.value = 'hello\n\n\n';
+    sendBtn.click();
+
+    expect(mockWebSocket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'input', data: 'hello\r' })
+    );
+  });
+
+  it('should preserve mid-text newlines when trimming trailing ones', () => {
+    const inputTextarea = document.getElementById('input-textarea');
+    const sendBtn = document.getElementById('send-btn');
+
+    inputTextarea.value = 'line1\nline2\n';
+    sendBtn.click();
+
+    expect(mockWebSocket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'input', data: 'line1\nline2\r' })
+    );
+  });
+
+  it('should handle beforeinput insertLineBreak by sending (soft keyboard Enter)', () => {
+    const inputTextarea = document.getElementById('input-textarea');
+    inputTextarea.value = 'test cmd';
+
+    const beforeInputEvent = new window.InputEvent('beforeinput', {
+      inputType: 'insertLineBreak',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    inputTextarea.dispatchEvent(beforeInputEvent);
+
+    expect(beforeInputEvent.defaultPrevented).toBe(true);
+    expect(mockWebSocket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'input', data: 'test cmd\r' })
+    );
+  });
+
+  it('should not send duplicate input when xterm.onData fires during textarea submit (bug fix)', () => {
+    const inputTextarea = document.getElementById('input-textarea');
+    const sendBtn = document.getElementById('send-btn');
+
+    // Mock onData callback を取得（clearAllMocksの前に取得）
+    const onDataCallback = mockTerminal.onData.mock.calls[0][0];
+
+    // テスト用にWebSocket.sendのカウントをリセット
+    mockWebSocket.send.mockClear();
+
+    inputTextarea.value = 'test';
+
+    // sendBtn.clickを呼ぶと、handleTextareaSubmitが実行され、
+    // その中でsetTimeout(..., 0)が呼ばれる。
+    // JSDOMのsetTimeoutは同期的に実行されるのでフラグが即座にオフになる。
+    // よって、onDataCallback呼び出しのタイミングをsendBtn.clickの直後にする必要がある。
+
+    // フラグがオンの間にonDataCallbackが呼ばれることをシミュレート
+    let onDataCalledDuringSubmit = false;
+    const originalSend = mockWebSocket.send.getMockImplementation();
+    mockWebSocket.send = vi.fn((...args) => {
+      // send呼び出し直後にonDataを呼ぶ（同期的）
+      if (!onDataCalledDuringSubmit) {
+        onDataCalledDuringSubmit = true;
+        onDataCallback('\x1b[O'); // ソフトキーボードのEnterから来る余分な入力
+      }
+      if (originalSend) return originalSend(...args);
+    });
+
+    sendBtn.click();
+
+    // sendが1回だけ呼ばれていることを確認（'test\r'のみ、'\x1b[O'は送られない）
+    expect(mockWebSocket.send).toHaveBeenCalledTimes(1);
+    expect(mockWebSocket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'input', data: 'test\r' })
+    );
   });
 });

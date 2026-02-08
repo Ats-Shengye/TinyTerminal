@@ -49,6 +49,10 @@ fitAddon.fit();
 let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
+let isReconnecting = false; // バックグラウンド復帰時の重複接続防止
+
+// textarea送信中フラグ（二重エンター問題対策）
+let isTextareaSending = false;
 
 // Modifier key state for special key bar
 const modifierState = {
@@ -87,6 +91,12 @@ function updateStatus(connected) {
  * Connect to WebSocket server
  */
 function connect() {
+  // 既に接続中または再接続待機中の場合はスキップ
+  if (isReconnecting) {
+    return;
+  }
+  isReconnecting = true;
+
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}`;
 
@@ -96,6 +106,7 @@ function connect() {
     console.log('WebSocket connected');
     updateStatus(true);
     reconnectAttempts = 0;
+    isReconnecting = false;
 
     // Send authentication message if token is present in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -142,6 +153,7 @@ function connect() {
   ws.onclose = () => {
     console.log('WebSocket disconnected');
     updateStatus(false);
+    isReconnecting = false;
 
     // Attempt reconnection
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -199,6 +211,14 @@ function sendResize(cols, rows) {
 // Forward xterm.js keyboard input directly to PTY
 // Tapping the terminal area on mobile opens software keyboard for direct input
 terminal.onData((data) => {
+  // textarea送信中は転送をスキップ（二重エンター問題対策）
+  if (isTextareaSending) {
+    return;
+  }
+  // Focus In/Out シーケンスをフィルタ（スマホでフォーカス移動が頻発するため）
+  if (data === '\x1b[I' || data === '\x1b[O') {
+    return;
+  }
   sendInput(data);
 });
 
@@ -233,6 +253,11 @@ function sendWithModifiers(char) {
   clearModifiers();
 }
 
+// Prevent focus steal on all UI buttons (keeps soft keyboard open)
+document.querySelectorAll('.key-btn, #send-btn, #expand-btn, #collapse-btn, #send-expanded-btn').forEach((btn) => {
+  btn.addEventListener('mousedown', (e) => e.preventDefault());
+});
+
 // Handle special key bar clicks
 document.querySelectorAll('.key-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -265,22 +290,39 @@ document.querySelectorAll('.key-btn').forEach((btn) => {
 
 // Handle textarea input submission
 function handleTextareaSubmit(textarea) {
-  const text = textarea.value;
+  // 末尾の改行を除去（ソフトキーボードがEnterで挿入する余分な改行対策）
+  const text = textarea.value.replace(/[\r\n]+$/, '');
+
+  // textarea送信中フラグをオン（二重エンター問題対策）
+  isTextareaSending = true;
 
   // Empty textarea: send just Enter (for TUI apps like nvim)
   if (text.length === 0) {
     sendInput('\r');
-    return;
+  } else {
+    sendInput(text + '\r');
   }
 
-  sendInput(text + '\r');
   textarea.value = '';
   textarea.style.height = 'auto'; // Reset height
+
+  // 送信完了後にフラグをオフ（ソフトキーボードのイベント処理完了を待つ）
+  setTimeout(() => {
+    isTextareaSending = false;
+  }, 50);
 }
 
 // Normal mode send button
 sendBtn.addEventListener('click', () => {
   handleTextareaSubmit(inputTextarea);
+});
+
+// ソフトキーボードのEnter捕捉（keydownでe.key==='Unidentified'になる端末対策）
+inputTextarea.addEventListener('beforeinput', (e) => {
+  if (e.inputType === 'insertLineBreak') {
+    e.preventDefault();
+    handleTextareaSubmit(inputTextarea);
+  }
 });
 
 // Enter to send, Shift+Enter for newline
@@ -397,3 +439,12 @@ connect();
 setTimeout(() => {
   handleResize();
 }, 500);
+
+// バックグラウンド復帰時に即再接続（バグ2対策）
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && (!ws || ws.readyState !== WebSocket.OPEN)) {
+    console.log('Page visible again, reconnecting immediately');
+    reconnectAttempts = 0; // 指数バックオフをリセット
+    connect();
+  }
+});
