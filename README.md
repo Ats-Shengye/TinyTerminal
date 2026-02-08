@@ -7,6 +7,7 @@
 - テスト126件
 
 > 技術詳細は [GLOSSARY.md](./GLOSSARY.md) を参照
+<img width="828" height="805" alt="image" src="https://github.com/user-attachments/assets/9a95b5a7-cfa4-48e6-bcaa-ae699fbeae6e" />
 
 ## 概要
 
