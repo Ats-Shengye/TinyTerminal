@@ -382,7 +382,10 @@ expandedTextarea.addEventListener('input', updateCharCount);
 // Handle terminal resize
 function handleResize() {
   fitAddon.fit();
-  const { cols, rows } = terminal;
+  // Subtract 2 columns to prevent right-edge clipping on mobile WebView
+  const cols = Math.max(2, terminal.cols - 2);
+  const rows = terminal.rows;
+  terminal.resize(cols, rows);
   sendResize(cols, rows);
   console.log(`Terminal resized to ${cols}x${rows}`);
 }

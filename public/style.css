@@ -221,9 +221,8 @@ body {
 
 /* Hide xterm.js scrollbar - prevent text clipping on narrow screens */
 .xterm-viewport {
-  scrollbar-width: none; /* Standard (Firefox, Chrome 121+) */
+  scrollbar-width: none;
 }
 .xterm-viewport::-webkit-scrollbar {
-  width: 0;
   display: none;
 }
