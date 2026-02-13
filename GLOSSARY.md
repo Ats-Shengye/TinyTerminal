@@ -31,10 +31,27 @@ updated: 2026-02-08
 | `sendResize`          | ターミナルサイズ変更をWebSocket経由でサーバーに通知            |
 | `sendWithModifiers`   | 修飾キー（Ctrl等）と文字を組み合わせて制御コードを送信        |
 | `clearModifiers`      | 全修飾キー状態をリセット                                       |
-| `handleTextareaSubmit`| textarea内容をPTYに送信（`text + '\r'`）してクリア             |
+| `handleTextareaSubmit`| textarea内容をPTYに送信（末尾改行トリム + `text + '\r'`）してクリア |
 | `handleResize`        | fitAddonでサイズ計算し、PTYリサイズを通知                      |
 | `updateStatus`        | 接続状態UIの更新（connected/disconnected）                     |
 | `updateCharCount`     | 拡大モードの文字数カウント表示更新                             |
+
+### クライアント内部状態フラグ
+
+| 名前                | 役割                                                           |
+| ------------------- | -------------------------------------------------------------- |
+| `isTextareaSending` | textarea送信中にxterm.js onDataの転送を抑制（50msタイマーでリセット） |
+| `isReconnecting`    | WebSocket再接続の重複防止（connect関数の二重呼び出し防止）     |
+
+### モバイル対策
+
+| 対策                          | 実装                                                              |
+| ----------------------------- | ----------------------------------------------------------------- |
+| Focus In/Outフィルタ          | `onData`で`\x1b[I`/`\x1b[O`を除外（フォーカス移動時のゴースト入力防止） |
+| mousedown preventDefault      | 全UIボタンでフォーカス移動を防止（ソフトキーボード維持）          |
+| beforeinput insertLineBreak   | Androidソフトキーボードのキャプチャ（`keydown`で`Unidentified`になる端末対策） |
+| visibilitychange即再接続      | バックグラウンド復帰時にWebSocketを即再接続（指数バックオフをリセット） |
+| 末尾改行トリム                | `textarea.value.replace(/[\r\n]+$/, '')`（ソフトキーボードが挿入する余分な改行除去） |
 
 ## 定数（src/constants.js）
 
@@ -63,7 +80,7 @@ updated: 2026-02-08
 
 | 経路             | 実装                        | 用途                                         |
 | ---------------- | --------------------------- | -------------------------------------------- |
-| xterm.js直接入力 | `terminal.onData(sendInput)` | ターミナルタップ→ソフトキーボードでの直接操作 |
+| xterm.js直接入力 | `terminal.onData(sendInput)` | ターミナルタップ→ソフトキーボードでの直接操作（Focus In/Outフィルタ適用） |
 | textarea         | Enter送信 / Shift+Enter改行 | 日本語入力（IME）対応の補助入力              |
 | 特殊キーバー     | `data-key`属性 + click      | Esc, Tab, Ctrl, Alt, Shift, 矢印, `/`, `-`  |
 

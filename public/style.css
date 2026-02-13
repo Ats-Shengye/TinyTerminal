@@ -218,3 +218,12 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #4a4a54;
 }
+
+/* Hide xterm.js scrollbar - prevent text clipping on narrow screens */
+.xterm-viewport {
+  scrollbar-width: none; /* Standard (Firefox, Chrome 121+) */
+}
+.xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
