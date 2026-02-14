@@ -226,3 +226,14 @@ body {
 .xterm-viewport::-webkit-scrollbar {
   display: none;
 }
+
+/* Override xterm.js internal clipping.
+   Font subpixel rendering on high-DPI screens causes cumulative width drift
+   (each cell renders ~0.06px wider than CSS calculation).
+   Let text overflow xterm-screen and rely on #terminal-container's
+   overflow:hidden (which has ~48px headroom) for final clipping. */
+.xterm-screen,
+.xterm-rows,
+.xterm-rows > div {
+  overflow: visible !important;
+}

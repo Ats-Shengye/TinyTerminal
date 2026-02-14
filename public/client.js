@@ -380,11 +380,24 @@ function updateCharCount() {
 expandedTextarea.addEventListener('input', updateCharCount);
 
 // Handle terminal resize
+// FitAddon's CSS-based cell measurement diverges from actual canvas rendering
+// due to DPR subpixel rounding. Correct by computing effective cell width
+// from physical pixel grid, then derive safe column count.
 function handleResize() {
   fitAddon.fit();
-  // Subtract 2 columns to prevent right-edge clipping on mobile WebView
-  const cols = Math.max(2, terminal.cols - 2);
+  const containerWidth = terminalContainer.clientWidth;
+  const cellW = terminal._core._renderService?.dimensions?.css?.cell?.width;
+  let cols = terminal.cols;
   const rows = terminal.rows;
+
+  if (cellW && containerWidth) {
+    const dpr = window.devicePixelRatio || 1;
+    const physCellWidth = Math.ceil(cellW * dpr);
+    const effectiveCellWidth = physCellWidth / dpr;
+    cols = Math.floor(containerWidth / effectiveCellWidth);
+  }
+
+  cols = Math.max(2, cols - 2); // Safety margin (1 fullwidth char)
   terminal.resize(cols, rows);
   sendResize(cols, rows);
   console.log(`Terminal resized to ${cols}x${rows}`);
