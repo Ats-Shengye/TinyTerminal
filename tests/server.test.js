@@ -313,6 +313,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     // Mock PTY
@@ -483,10 +486,45 @@ describe('WebSocket Integration', () => {
     );
   });
 
+  it('should replace old connection when same IP reconnects', async () => {
+    const { handleConnection } = await import('../src/server.js');
+
+    const oldWs = {
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn(),
+    };
+
+    const newWs = {
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn(),
+    };
+
+    const req = {
+      headers: { origin: 'http://localhost:3000' },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
+    };
+
+    // First connection
+    handleConnection(oldWs, req);
+    expect(oldWs.close).not.toHaveBeenCalled();
+
+    // Second connection from same IP
+    handleConnection(newWs, req);
+
+    // Old connection should be closed
+    expect(oldWs.close).toHaveBeenCalled();
+    // New connection should not be closed
+    expect(newWs.close).not.toHaveBeenCalled();
+  });
+
   it('should enforce connection limit', async () => {
     const { handleConnection } = await import('../src/server.js');
 
-    // Create MAX_CONNECTIONS + 1 connections
+    // Create MAX_CONNECTIONS + 1 connections from different IPs
     const connections = [];
     for (let i = 0; i < MAX_CONNECTIONS + 1; i++) {
       const ws = {
@@ -496,13 +534,18 @@ describe('WebSocket Integration', () => {
       };
       const req = {
         headers: { origin: 'http://localhost:3000' },
+        socket: {
+          // Each connection from different Tailscale IP
+          remoteAddress: `100.64.0.${i + 1}`,
+        },
       };
 
       handleConnection(ws, req);
       connections.push(ws);
     }
 
-    // Last connection should be rejected (closed)
+    // Last connection should be rejected (closed) because it's from a different IP
+    // and the connection limit has been reached
     expect(connections[MAX_CONNECTIONS].close).toHaveBeenCalled();
   });
 
@@ -638,6 +681,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://evil.com',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, unauthorizedReq);
@@ -656,6 +702,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, req);
@@ -673,6 +722,9 @@ describe('WebSocket Integration', () => {
     const req = {
       headers: {
         origin: 'http://localhost:3000',
+      },
+      socket: {
+        remoteAddress: '100.64.0.1',
       },
     };
 
@@ -701,6 +753,9 @@ describe('WebSocket Integration', () => {
     const req = {
       headers: {
         origin: 'http://localhost:3000',
+      },
+      socket: {
+        remoteAddress: '100.64.0.1',
       },
     };
 
@@ -739,6 +794,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, req);
@@ -769,6 +827,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, req);
@@ -792,6 +853,9 @@ describe('WebSocket Integration', () => {
     const req = {
       headers: {
         origin: 'http://localhost:3000',
+      },
+      socket: {
+        remoteAddress: '100.64.0.1',
       },
     };
 
@@ -839,6 +903,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, req);
@@ -867,6 +934,9 @@ describe('WebSocket Integration', () => {
       headers: {
         origin: 'http://localhost:3000',
       },
+      socket: {
+        remoteAddress: '100.64.0.1',
+      },
     };
 
     handleConnection(mockWs, req);
@@ -894,6 +964,9 @@ describe('WebSocket Integration', () => {
     const req = {
       headers: {
         origin: 'http://localhost:3000',
+      },
+      socket: {
+        remoteAddress: '100.64.0.1',
       },
     };
 
@@ -937,6 +1010,9 @@ describe('WebSocket Integration', () => {
     const req = {
       headers: {
         origin: 'http://localhost:3000',
+      },
+      socket: {
+        remoteAddress: '100.64.0.1',
       },
     };
 

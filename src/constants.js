@@ -9,12 +9,12 @@
 export const MAX_INPUT_LENGTH = 10000;
 
 // Server configuration
-export const DEFAULT_PORT = 3000;
+export const DEFAULT_PORT = 49000;
 export const MIN_PORT = 1024;
-export const MAX_PORT = 65535;
+export const MAX_PORT = 49151;
 
 // WebSocket limits
-export const MAX_CONNECTIONS = 3;
+export const MAX_CONNECTIONS = 2;
 
 // PTY environment whitelist
 export const SAFE_ENV_KEYS = [

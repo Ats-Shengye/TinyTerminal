@@ -28,8 +28,10 @@ const __dirname = path.dirname(__filename);
 const rawPort = process.env.PORT || DEFAULT_PORT;
 const PORT = validatePort(rawPort);
 
-// Track active connections
-let activeConnections = 0;
+// Track active connections by IP address (IP -> WebSocket)
+// Design Decision: Using Map instead of counter to enable IP-based connection replacement
+// When a new connection from the same IP arrives, close the old one and replace it
+const connectionMap = new Map();
 
 /**
  * Log with timestamp
@@ -305,15 +307,28 @@ export function handleConnection(ws, req) {
     return;
   }
 
-  // Connection limit
-  if (activeConnections >= MAX_CONNECTIONS) {
+  // Get client IP address
+  // Security Note: req.socket.remoteAddress is trusted within TCP/Tailscale environment
+  // IP spoofing is not possible at TCP layer
+  const clientIP = req.socket.remoteAddress;
+
+  // Check if same IP already has a connection
+  if (connectionMap.has(clientIP)) {
+    // Close old connection and replace with new one
+    const oldWs = connectionMap.get(clientIP);
+    log('Same IP reconnected, closing old connection');
+    oldWs.close();
+    // Note: The old connection's close handler will remove it from the map
+  } else if (connectionMap.size >= MAX_CONNECTIONS) {
+    // Different IP and connection limit reached
     log('Connection limit reached, rejecting new connection');
     ws.close();
     return;
   }
 
-  activeConnections++;
-  log(`Client connected (${activeConnections}/${MAX_CONNECTIONS})`);
+  // Add new connection to map
+  connectionMap.set(clientIP, ws);
+  log(`Client connected (${connectionMap.size}/${MAX_CONNECTIONS})`);
 
   // Authentication state
   const AUTH_TOKEN = process.env.TINYTERMINAL_TOKEN;
@@ -464,8 +479,16 @@ export function handleConnection(ws, req) {
     if (authTimeout) {
       clearTimeout(authTimeout);
     }
-    activeConnections--;
-    log(`Client disconnected (${activeConnections}/${MAX_CONNECTIONS})`);
+    // Remove this connection from the map
+    // Security Note: We need to find and remove the entry where ws matches
+    // IP addresses are not logged to prevent PII leakage
+    for (const [ip, wsInMap] of connectionMap.entries()) {
+      if (wsInMap === ws) {
+        connectionMap.delete(ip);
+        break;
+      }
+    }
+    log(`Client disconnected (${connectionMap.size}/${MAX_CONNECTIONS})`);
     if (ptyProcess) {
       ptyProcess.kill();
       ptyProcess = null;

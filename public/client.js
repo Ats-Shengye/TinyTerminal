@@ -270,6 +270,12 @@ document.querySelectorAll('.key-btn').forEach((btn) => {
       return;
     }
 
+    // Scroll to bottom (special action)
+    if (key === 'scroll-bottom') {
+      terminal.scrollToBottom();
+      return;
+    }
+
     // Normal keys (send immediately)
     const keyMap = {
       esc: '\x1b',
