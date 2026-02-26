@@ -22,6 +22,19 @@
     <span id="status-indicator" class="status-disconnected">●</span>
     <span id="status-host">connecting...</span>
     <span id="status-title">TinyTerminal</span>
+    <button id="settings-btn" title="Settings">⚙</button>
+  </div>
+
+  <!-- Settings Popup -->
+  <div id="settings-popup" style="display: none;">
+    <div class="settings-row">
+      <span>Font Size</span>
+      <div class="settings-controls">
+        <button id="font-decrease" class="settings-ctrl-btn">-</button>
+        <span id="font-size-display">13</span>
+        <button id="font-increase" class="settings-ctrl-btn">+</button>
+      </div>
+    </div>
   </div>
 
   <!-- xterm.js Terminal Container -->

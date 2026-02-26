@@ -5,11 +5,15 @@
  * Related    : public/index.html, src/server.js
  */
 
+// Font size from localStorage or default
+const savedFontSize = parseInt(localStorage.getItem('tt-font-size'), 10);
+const initialFontSize = (savedFontSize >= 8 && savedFontSize <= 28) ? savedFontSize : 13;
+
 // Initialize xterm.js
 const terminal = new Terminal({
   scrollback: 5000,
   cursorBlink: true,
-  fontSize: 13,
+  fontSize: initialFontSize,
   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
   theme: {
     background: '#0c0c14',
@@ -453,6 +457,45 @@ if (window.visualViewport) {
     handleResize();
   });
 }
+
+// Settings popup
+const settingsBtn = document.getElementById('settings-btn');
+const settingsPopup = document.getElementById('settings-popup');
+const fontDecrease = document.getElementById('font-decrease');
+const fontIncrease = document.getElementById('font-increase');
+const fontSizeDisplay = document.getElementById('font-size-display');
+
+fontSizeDisplay.textContent = terminal.options.fontSize;
+
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  settingsPopup.style.display = settingsPopup.style.display === 'none' ? 'block' : 'none';
+});
+
+// Close popup when clicking outside
+document.addEventListener('click', (e) => {
+  if (!settingsPopup.contains(e.target) && e.target !== settingsBtn) {
+    settingsPopup.style.display = 'none';
+  }
+});
+
+// Prevent focus steal on settings buttons
+[settingsBtn, fontDecrease, fontIncrease].forEach((btn) => {
+  btn.addEventListener('mousedown', (e) => e.preventDefault());
+});
+
+function changeFontSize(delta) {
+  const current = terminal.options.fontSize;
+  const next = Math.min(28, Math.max(8, current + delta));
+  if (next === current) return;
+  terminal.options.fontSize = next;
+  fontSizeDisplay.textContent = next;
+  localStorage.setItem('tt-font-size', next);
+  handleResize();
+}
+
+fontDecrease.addEventListener('click', () => changeFontSize(-1));
+fontIncrease.addEventListener('click', () => changeFontSize(1));
 
 // Initial connection
 connect();
