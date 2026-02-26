@@ -19,6 +19,8 @@ import {
   MAX_PORT,
   MAX_CONNECTIONS,
   SAFE_ENV_KEYS,
+  HEARTBEAT_INTERVAL,
+  MAX_MISSED_PONGS,
 } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -336,6 +338,29 @@ export function handleConnection(ws, req) {
   let authTimeout = null;
   let ptyProcess = null;
 
+  // Heartbeat state
+  let heartbeatInterval = null;
+  let missedPongs = 0;
+
+  /**
+   * Start WebSocket heartbeat after authentication
+   * Sends ping every HEARTBEAT_INTERVAL ms; terminates on MAX_MISSED_PONGS consecutive non-responses
+   * Security: Uses ws.terminate() (not ws.close()) to force-close ghost connections
+   */
+  function startHeartbeat() {
+    heartbeatInterval = setInterval(() => {
+      if (missedPongs >= MAX_MISSED_PONGS) {
+        log(`Heartbeat: ${MAX_MISSED_PONGS} consecutive pongs missed, terminating connection`);
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        ws.terminate();
+        return;
+      }
+      missedPongs += 1;
+      ws.ping();
+    }, HEARTBEAT_INTERVAL);
+  }
+
   // Set authentication timeout (5 seconds)
   if (AUTH_TOKEN) {
     authTimeout = setTimeout(() => {
@@ -388,6 +413,11 @@ export function handleConnection(ws, req) {
   // PTY is created on first resize message (after authentication if required)
   // This ensures PTY starts with correct terminal dimensions from the client
 
+  // Handle pong response from client: reset missed counter
+  ws.on('pong', () => {
+    missedPongs = 0;
+  });
+
   // Handle WebSocket messages
   ws.on('message', async (data) => {
     try {
@@ -410,6 +440,7 @@ export function handleConnection(ws, req) {
           authenticated = true;
           clearTimeout(authTimeout);
           log('Client authenticated successfully');
+          startHeartbeat();
 
           // PTY will be created on first resize message
           ws.send(
@@ -479,14 +510,16 @@ export function handleConnection(ws, req) {
     if (authTimeout) {
       clearTimeout(authTimeout);
     }
-    // Remove this connection from the map
-    // Security Note: We need to find and remove the entry where ws matches
-    // IP addresses are not logged to prevent PII leakage
-    for (const [ip, wsInMap] of connectionMap.entries()) {
-      if (wsInMap === ws) {
-        connectionMap.delete(ip);
-        break;
-      }
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    // Remove this connection from the map only if it still belongs to this ws.
+    // When the same IP reconnects, the old ws is replaced in the map before
+    // its close handler fires, so a naive delete(clientIP) would remove the
+    // new connection's entry.
+    if (connectionMap.get(clientIP) === ws) {
+      connectionMap.delete(clientIP);
     }
     log(`Client disconnected (${connectionMap.size}/${MAX_CONNECTIONS})`);
     if (ptyProcess) {
@@ -501,7 +534,9 @@ export function handleConnection(ws, req) {
   });
 
   // Send initial connection success message (only if no auth required)
+  // No token configured: start heartbeat immediately
   if (!AUTH_TOKEN) {
+    startHeartbeat();
     ws.send(
       JSON.stringify({
         type: 'connected',

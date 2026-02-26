@@ -16,6 +16,10 @@ export const MAX_PORT = 49151;
 // WebSocket limits
 export const MAX_CONNECTIONS = 2;
 
+// WebSocket heartbeat
+export const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+export const MAX_MISSED_PONGS = 3;
+
 // PTY environment whitelist
 export const SAFE_ENV_KEYS = [
   'HOME',

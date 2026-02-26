@@ -301,10 +301,13 @@ describe('WebSocket Integration', () => {
     mockWs = {
       send: vi.fn(),
       close: vi.fn(),
+      terminate: vi.fn(),
+      ping: vi.fn(),
       on: vi.fn((event, callback) => {
         if (event === 'message') mockWs._messageHandler = callback;
         if (event === 'close') mockWs._closeHandler = callback;
         if (event === 'error') mockWs._errorHandler = callback;
+        if (event === 'pong') mockWs._pongHandler = callback;
       }),
     };
 
@@ -1058,6 +1061,138 @@ describe('WebSocket Integration', () => {
     );
 
     delete process.env.TINYTERMINAL_TOKEN;
+  });
+
+  describe('Heartbeat', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.clearAllMocks();
+    });
+
+    it('should start heartbeat immediately when no auth token required', async () => {
+      vi.useFakeTimers();
+      delete process.env.TINYTERMINAL_TOKEN;
+
+      vi.resetModules();
+      const { handleConnection } = await import('../src/server.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // heartbeat開始前はpingが呼ばれていない
+      expect(mockWs.ping).not.toHaveBeenCalled();
+
+      // 30秒経過させる（最初のping）
+      vi.advanceTimersByTime(30000);
+      expect(mockWs.ping).toHaveBeenCalledTimes(1);
+    });
+
+    it('should start heartbeat after successful authentication', async () => {
+      vi.useFakeTimers();
+      process.env.TINYTERMINAL_TOKEN = 'test-secret-token';
+
+      vi.resetModules();
+      const { handleConnection } = await import('../src/server.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // 認証前はheartbeat未開始
+      vi.advanceTimersByTime(30000);
+      expect(mockWs.ping).not.toHaveBeenCalled();
+
+      // 認証成功
+      const authMessage = JSON.stringify({ type: 'auth', token: 'test-secret-token' });
+      await mockWs._messageHandler(Buffer.from(authMessage));
+
+      // 認証後30秒でpingが送られる
+      vi.advanceTimersByTime(30000);
+      expect(mockWs.ping).toHaveBeenCalledTimes(1);
+
+      delete process.env.TINYTERMINAL_TOKEN;
+    });
+
+    it('should reset missed pong counter when pong is received', async () => {
+      vi.useFakeTimers();
+      delete process.env.TINYTERMINAL_TOKEN;
+
+      vi.resetModules();
+      const { handleConnection } = await import('../src/server.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // pongハンドラが登録されている
+      expect(mockWs._pongHandler).toBeDefined();
+
+      // 2回分pingを送る（missedPongs = 2）
+      vi.advanceTimersByTime(60000);
+      expect(mockWs.ping).toHaveBeenCalledTimes(2);
+
+      // pong受信でカウンターリセット
+      mockWs._pongHandler();
+
+      // さらに1回ping（missedPongs = 1、terminateされない）
+      vi.advanceTimersByTime(30000);
+      expect(mockWs.terminate).not.toHaveBeenCalled();
+    });
+
+    it('should terminate connection after MAX_MISSED_PONGS consecutive non-responses', async () => {
+      vi.useFakeTimers();
+      delete process.env.TINYTERMINAL_TOKEN;
+
+      vi.resetModules();
+      const { handleConnection, HEARTBEAT_INTERVAL: _interval } = await import('../src/server.js');
+      const { MAX_MISSED_PONGS: maxPongs, HEARTBEAT_INTERVAL: interval } = await import('../src/constants.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // MAX_MISSED_PONGS回分のping（missedPongs = MAX_MISSED_PONGS）
+      vi.advanceTimersByTime(interval * maxPongs);
+      expect(mockWs.terminate).not.toHaveBeenCalled();
+
+      // MAX_MISSED_PONGS+1回目のインターバルでterminateが呼ばれる
+      vi.advanceTimersByTime(interval);
+      expect(mockWs.terminate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should clear heartbeat interval on WebSocket close', async () => {
+      vi.useFakeTimers();
+      delete process.env.TINYTERMINAL_TOKEN;
+
+      vi.resetModules();
+      const { handleConnection } = await import('../src/server.js');
+      const { HEARTBEAT_INTERVAL: interval } = await import('../src/constants.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // heartbeat開始確認
+      vi.advanceTimersByTime(interval);
+      expect(mockWs.ping).toHaveBeenCalledTimes(1);
+
+      // 接続クローズ
+      mockWs._closeHandler();
+      mockWs.ping.mockClear();
+
+      // クローズ後はpingが呼ばれない
+      vi.advanceTimersByTime(interval * 5);
+      expect(mockWs.ping).not.toHaveBeenCalled();
+    });
+
+    it('should use ws.terminate() not ws.close() for ghost connection cleanup', async () => {
+      vi.useFakeTimers();
+      delete process.env.TINYTERMINAL_TOKEN;
+
+      vi.resetModules();
+      const { handleConnection } = await import('../src/server.js');
+      const { MAX_MISSED_PONGS: maxPongs, HEARTBEAT_INTERVAL: interval } = await import('../src/constants.js');
+
+      handleConnection(mockWs, mockReq);
+
+      // 全pongを無視してterminateまで進める
+      vi.advanceTimersByTime(interval * (maxPongs + 1));
+
+      expect(mockWs.terminate).toHaveBeenCalled();
+      // close()は呼ばれていない（terminateとcloseは別）
+      expect(mockWs.close).not.toHaveBeenCalled();
+    });
   });
 });
 
